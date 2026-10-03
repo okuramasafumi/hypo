@@ -1,6 +1,6 @@
 # Hypo MVP implementation plan
 
-Status: implementation plan, updated 2026-09-30. M0 is complete; M1 is next. Compatibility prototypes and evidence are under `.agents.local/m0/`; the production framework has not yet been implemented. See [M0 findings](docs/spinel-compatibility.md).
+Status: implementation plan, updated 2026-10-04. M0 and M1 are complete on the pinned macOS arm64 toolchain; M2 is next. M1 implements one integer property per executable, deterministic generation, native builds, and first-counterexample reporting. Shrinking and multi-property suites are not implemented. See [usage and the implemented contract](README.md) and [M0 findings](docs/spinel-compatibility.md).
 
 ## Outcome and scope
 
@@ -16,13 +16,13 @@ The minimum useful loop is **generate → evaluate → shrink → reproduce**. D
 
 ## Current repository and verified constraints
 
-- The repository has an unborn `main` branch and an untracked scaffold: `spin.toml`, `.gitignore`, `bin/hypo.rb`, and an empty `test/` directory. The entry point prints `Hello from hypo`.
-- Preserve that starting state. There is no existing test framework or application behavior to migrate.
+- At planning time (2026-09-28), the repository had an unborn `main` branch and an untracked scaffold: `spin.toml`, `.gitignore`, `bin/hypo.rb`, and an empty `test/` directory. The entry point prints `Hello from hypo`.
+- That scaffold was preserved before implementation. M1 started from clean commit `e3c303f` and recorded incremental transformations under `.agents.local/reviews/m1/`.
 - Local Spinel checkout: `/Users/okuramasafumi/src/spinel`, revision `6c97683140c624520836c8f807ba598f0f47a57e`.
 - Its compiler reports `spinel 2026.09.12+1457 (6c976831) [apple clang 21.0.0 (cc)]`. Local executables exist under that checkout's `bin/`; `spin` was not found on this session's PATH.
 - Spinel compiles Ruby through C into native executables. Its documented AOT constraints rule out depending on runtime `eval`, runtime class generation, or unrestricted reflection. Literal blocks and static calls are the intended design direction, subject to probes.
 - `spin test` compares stdout with committed snapshots or CRuby output; nonzero exit also fails. Expected failing Hypo executables therefore need a separate integration harness that checks their output and exit status.
-- M0 now verifies the native builder-to-runner chain, repeated literal blocks, three input types, fresh copies, file IO, compiler subprocesses, explicit property locations, and standalone runner execution on macOS arm64. Release backtraces/caller locations are empty. See [the evidence and limits](docs/spinel-compatibility.md); generation, shrinking, and replay remain unimplemented.
+- M0 now verifies the native builder-to-runner chain, repeated literal blocks, three input types, fresh copies, file IO, compiler subprocesses, explicit property locations, and standalone runner execution on macOS arm64. Release backtraces/caller locations are empty. See [the evidence and limits](docs/spinel-compatibility.md); M1 now adds verified deterministic integer generation and same-binary seed repeatability; shrinking remains unimplemented.
 
 ## Proposed developer experience
 
@@ -42,7 +42,7 @@ Each property initially requires `at: [__FILE__, __LINE__]` metadata because the
 
 The generated entry point loads Hypo and configures the runner before loading the specification. This avoids placing setup boilerplate in every spec. `Hypo.assert` requires a Boolean condition and accepts an optional explanatory message. The property description must be nonempty and unique within the suite; it is also the property selector for reproduction.
 
-Proposed production commands (not yet implemented; M0 exercised a compatibility builder):
+Build and run commands are implemented in M1. The `--property` selector below remains planned for M3:
 
 ```sh
 spin build
@@ -73,7 +73,7 @@ MVP integer generator bounds are limited to signed 32-bit values, even though th
 
 One generated value per property is sufficient initially; an integer array counts as one value. Multi-argument properties, tuples, strings, floats, hashes, arbitrary objects, nested strategies, custom generators, filters/assumptions, and dependent generators are deferred.
 
-Use an explicit, private deterministic PRNG with specified integer arithmetic and known-answer tests, rather than sharing the tested program's random state. Freeze the initial algorithm in milestone M1. Establish its exact supported arithmetic on Spinel before relying on overflow, shifts, or modulo behavior.
+M1 freezes a private 32-bit LCG: `state = (1664525 * state + 1013904223) % 4294967296`, initialized directly from the seed. Sampling uses rejection of the incomplete upper interval before modulo mapping; boundary order is valid, unique `min`, `max`, `0`, `-1`, `1`. Boundary cases consume budget but no PRNG draws. Known-answer and rejection-consumption tests pass under CRuby and Spinel. See [the exact contract](README.md#integer-generation-contract).
 
 Begin each property with the same suite seed in an independent PRNG instance. This keeps a selected property's cases unchanged when other properties are added, reordered, or filtered. Correlation between properties is an accepted MVP trade-off. Exercise valid boundary examples first, then sample the remaining budget. Duplicate samples are allowed; count actual executions, not unique values.
 
@@ -123,7 +123,7 @@ Layout is proposed; confirm `lib/` loading and `spin` conventions in M0. Do not 
 | ID | Depends on | Work and independently reviewable decisions | Acceptance gate |
 | --- | --- | --- | --- |
 | M0 — prove the compilation path (complete) | None | Pin a Spinel revision; probe the literal property block, repeated invocation, generator objects, integer arrays, fresh copies, exception/location reporting, file IO, and argument-vector subprocess launch. Compile a tiny Hypo builder that emits and compiles a runner. Check source loading from a different working directory. | **Passed on macOS arm64**, with the source/location constraints above. A native builder produced a native runner exercising a local function; the runner worked after hiding its sources and removing tools from PATH. Commands, diagnostics, and probe sources are preserved. Linux is not verified. |
-| M1 — deliver one integer property end to end | M0 | Add the proposed property/assert API, private PRNG, integer generator, one-spec build command, generation loop, pass/failure output, seed/options, and exit codes. Specify PRNG arithmetic and candidate ordering. | A correct target passes; a deliberately buggy target fails with the expected seed and original input. A second run of the same binary reproduces it. Boundary, PRNG, and invalid-domain tests pass under CRuby and Spinel. |
+| M1 — deliver one integer property end to end (complete) | M0 | Add the proposed property/assert API, private PRNG, integer generator, one-spec build command, generation loop, pass/failure output, seed/options, and exit codes. Specify PRNG arithmetic and candidate ordering. | **Passed on the pinned macOS arm64 toolchain.** Both unit programs pass under CRuby/Spinel; 45 native integration checks cover correct and buggy targets, a known random counterexample, exact repeatability, errors, preserved build outputs, and standalone execution. Runnable correct/buggy examples are included. |
 | M2 — shrink and reproduce failures | M1 | Implement bounded integer shrinking, failure identity, final confirmation, source-aware reporting, and copy/ownership rules. | A target failing for `n >= 10` shrinks a known larger example to 10. Positive-only and negative-only domains remain valid. An assertion is not replaced by an exception, nor one exception class by another; same-class raise sites are not distinguished. Budget exhaustion is labeled; a deliberately unstable property is reported as unstable. Printed command reproduces the failure. |
 | M3 — add Boolean and integer-array properties | M2 | Add the two remaining generators and shrinkers, multiple explicit spec files, multiple properties, unique descriptions, selection, and aggregated results. Keep these as separate review units when implementing. | Empty/singleton arrays and both Boolean values are exercised; an array property with a planted bug reduces to the expected small witness. An input-mutating target cannot corrupt saved examples. Filtering/reordering unrelated properties preserves the selected property's sequence. Empty/invalid suites fail clearly. |
 | M4 — make the MVP usable and releasable | M3 | Finish command help, compiler configuration, retained build artifacts, version metadata, documentation, examples, and pinned CI. Add native end-to-end tests for all exit codes, compiler failure, path quoting, and replay. | A fresh checkout builds Hypo and compiles the documented example commands. The produced binary runs independently of the source tree and compiler. All contract tests pass on the initial macOS environment and a pinned Linux CI environment, or platform support is explicitly narrowed before release. |
