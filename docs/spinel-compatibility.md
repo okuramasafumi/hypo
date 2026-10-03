@@ -93,3 +93,15 @@ Python and CRuby are verification tools here, not dependencies of the generated 
 ## Validation limits
 
 Not verified: Linux, full CLI parsing, production suite state, generator coverage/distribution, actual shrinking, seed replay, all user errors, signals/timeouts, cross compilation, or packaging. No speed or portability claim beyond the tested environment follows from M0. The next step is M1: one integer property, deterministic generation, and truthful pass/failure behavior end to end.
+
+
+## M2 follow-up (2026-10-04)
+
+The same pinned compiler passes bounded integer shrinking, failure-class preservation, object-state-based unstable-failure detection, and executable replay tests. Public-API fixtures report their expected original spec locations. M2 deliberately reports failure identity by property and exception class, without claiming automatic raise-site identity.
+
+Two additional compiler differences were observed during M2 and remain outside Hypo's implementation:
+
+- A captured scalar local incremented inside a property before an assertion exception did not retain its update across evaluations in the native probe. CRuby advanced from 1 to 2; native execution printed 1 twice. Moving to a single invocation site and removing an intermediate forwarding block did not resolve it. The emitted C places the local update inside a `setjmp` rescue boundary; that is evidence for investigation, not a verified compiler fix. The unstable-failure acceptance tests use a target object with instance state, which does retain updates under both runtimes and correctly triggers `UNSTABLE`. See `.agents.local/m2/probes/mutation.rb` and `logs/mutation-three-sites.json`.
+- In the larger direct-runner unit program, `__LINE__` was two lines higher in native output than in CRuby. Moving the evaluation-result class into the runner file did not resolve it. Those algorithm tests now pass fixed source metadata to isolate their contract. Separate native integration tests verify the actual `__FILE__`/`__LINE__` values in compiled public-API specs; their locations match. Do not generalize that coverage into a guarantee about all compiler source mappings. The unmodified discrepancy is retained in `.agents.local/m2/logs/shrinking-target.json` and `logs/shrinking-inline-result.json`.
+
+Intermediate sources and failing probe logs are retained under `.agents.local/m2/`; the final implementation and its passing verification are recorded under `.agents.local/reviews/m2/`. These are compiler compatibility limits, not evidence that shrinking or confirmation passed before the corrected acceptance tests ran.

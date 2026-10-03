@@ -4,7 +4,7 @@ def check(condition, message)
   raise message unless condition
 end
 
-Hypo.configure(["--seed", "42", "--examples", "7"])
+Hypo.configure(["--seed", "42", "--examples", "7"], executable: "hypo-test-runner", compiler_version: "test compiler")
 seen = []
 Hypo.property "passing", Hypo.integers(min: -2, max: 2), at: [__FILE__, __LINE__] do |value|
   seen << value
@@ -13,23 +13,23 @@ end
 check(seen == [-2, 2, 0, -1, 1, 1, 1], "seeded inputs")
 check(Hypo.finish == 0, "passing exit")
 
-Hypo.configure([])
+Hypo.configure([], executable: "hypo-test-runner", compiler_version: "test compiler")
 seen = []
 Hypo.property "failing", Hypo.integers(min: -2, max: 2), at: [__FILE__, __LINE__] do |value|
   seen << value
   Hypo.assert(value < 0, "must be negative")
 end
-check(seen == [-2, 2], "stops at first failure")
+check(seen == [-2, 2, 0, 0], "generation stops, then shrinking and confirmation run")
 check(Hypo.finish == 1, "failing exit")
 
-Hypo.configure([])
+Hypo.configure([], executable: "hypo-test-runner", compiler_version: "test compiler")
 Hypo.property "exception", Hypo.integers, at: [__FILE__, __LINE__] do |value|
   raise ArgumentError, "target error"
 end
 check(Hypo.finish == 1, "exception exit")
 
 errors = 0
-Hypo.configure([])
+Hypo.configure([], executable: "hypo-test-runner", compiler_version: "test compiler")
 begin
   Hypo.property "two assertions", Hypo.integers, at: [__FILE__, __LINE__] do |value|
     Hypo.assert(true)
@@ -38,7 +38,7 @@ begin
 rescue Hypo::Error
   errors += 1
 end
-Hypo.configure([])
+Hypo.configure([], executable: "hypo-test-runner", compiler_version: "test compiler")
 begin
   Hypo.property "framework error", Hypo.integers, at: [__FILE__, __LINE__] do |value|
     raise Hypo::Error, "must escape failure rescue"
@@ -46,7 +46,7 @@ begin
 rescue Hypo::Error
   errors += 1
 end
-Hypo.configure([])
+Hypo.configure([], executable: "hypo-test-runner", compiler_version: "test compiler")
 begin
   Hypo.property "nonboolean", Hypo.integers, at: [__FILE__, __LINE__] do |value|
     Hypo.assert(1)
@@ -54,7 +54,7 @@ begin
 rescue Hypo::Error
   errors += 1
 end
-Hypo.configure([])
+Hypo.configure([], executable: "hypo-test-runner", compiler_version: "test compiler")
 begin
   Hypo.property "bad location", Hypo.integers, at: ["file.rb", 0] do |value|
     Hypo.assert(true)
@@ -62,7 +62,7 @@ begin
 rescue Hypo::Error
   errors += 1
 end
-Hypo.configure([])
+Hypo.configure([], executable: "hypo-test-runner", compiler_version: "test compiler")
 begin
   Hypo.finish
 rescue Hypo::Error
@@ -74,7 +74,7 @@ invalid_options = [["--seed", "-1"], ["--seed", "4294967296"], ["--seed", "1x"],
 rejected = 0
 invalid_options.each do |args|
   begin
-    Hypo.configure(args)
+    Hypo.configure(args, executable: "hypo-test-runner", compiler_version: "test compiler")
   rescue Hypo::Error
     rejected += 1
   end

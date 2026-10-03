@@ -38,6 +38,30 @@ module Hypo
       "require_relative #{literal}\n"
     end
 
+    def self.compiler_version(compiler, directory)
+      log_path = File.join(directory, "compiler-version.log")
+      begin
+        log = File.open(log_path, "w")
+        begin
+          pid = Process.spawn(compiler, "--version", out: log, err: log)
+          result = Process.waitpid2(pid)
+          status = result[1]
+        ensure
+          log.close
+        end
+        unless status.success?
+          warn File.read(log_path)
+          raise Error, "compiler version command failed"
+        end
+        version = File.read(log_path).strip
+        raise Error, "compiler returned an empty version" if version.empty?
+        version
+      rescue StandardError
+        warn "build artifacts: #{directory}"
+        raise
+      end
+    end
+
     def self.call(spec, output, compiler)
       spec = File.expand_path(spec)
       output = File.expand_path(output)
@@ -51,8 +75,9 @@ module Hypo
       entry = File.join(directory, "runner.rb")
       pending = File.join(directory, "runner")
       log_path = File.join(directory, "compiler.log")
+      version = compiler_version(compiler, directory)
       source = reference(runtime, directory)
-      source += "begin\nHypo.configure(ARGV)\n"
+      source += "begin\nHypo.configure(ARGV, compiler_version: #{version.dump})\n"
       source += reference(spec, directory)
       source += "exit Hypo.finish\nrescue StandardError => error\nwarn \"hypo: \" + error.class.to_s + \": \" + error.message\nexit 2\nend\n"
       File.write(entry, source)

@@ -3,8 +3,8 @@ require_relative "hypo/runner"
 module Hypo
   @runner = Runner.new([])
 
-  def self.configure(args)
-    @runner = Runner.new(args)
+  def self.configure(args, executable: $0, compiler_version: "unrecorded")
+    @runner = Runner.new(args, executable: executable, compiler_version: compiler_version)
   end
 
   def self.property(name, generator, at:)
