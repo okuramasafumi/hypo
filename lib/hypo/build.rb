@@ -62,13 +62,19 @@ module Hypo
       end
     end
 
-    def self.call(spec, output, compiler)
-      spec = File.expand_path(spec)
+    def self.call(specs, output, compiler)
+      raise Error, "at least one spec file is required" if specs.empty?
+      specs = specs.map { |spec| File.expand_path(spec) }
       output = File.expand_path(output)
       runtime = File.expand_path("../hypo.rb", __dir__)
-      raise Error, "spec file not found: #{spec}" unless File.file?(spec)
+      seen = []
+      specs.each do |spec|
+        raise Error, "spec file not found: #{spec}" unless File.file?(spec)
+        raise Error, "duplicate spec file: #{spec}" if seen.include?(spec)
+        seen << spec
+      end
       raise Error, "Hypo runtime source not found: #{runtime}" unless File.file?(runtime)
-      if output == spec || output.end_with?(".rb")
+      if specs.include?(output) || output.end_with?(".rb")
         raise Error, "output must be a native executable path, not a Ruby source file"
       end
       directory = artifact_directory
@@ -78,7 +84,7 @@ module Hypo
       version = compiler_version(compiler, directory)
       source = reference(runtime, directory)
       source += "begin\nHypo.configure(ARGV, compiler_version: #{version.dump})\n"
-      source += reference(spec, directory)
+      specs.each { |spec| source += reference(spec, directory) }
       source += "exit Hypo.finish\nrescue StandardError => error\nwarn \"hypo: \" + error.class.to_s + \": \" + error.message\nexit 2\nend\n"
       File.write(entry, source)
       mkdir_p(File.dirname(output))

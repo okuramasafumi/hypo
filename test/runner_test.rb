@@ -6,7 +6,7 @@ end
 
 Hypo.configure(["--seed", "42", "--examples", "7"], executable: "hypo-test-runner", compiler_version: "test compiler")
 seen = []
-Hypo.property "passing", Hypo.integers(min: -2, max: 2), at: [__FILE__, __LINE__] do |value|
+Hypo.property "passing", Hypo.integers(min: -2, max: 2), at: ["runner_test.rb", 1] do |value|
   seen << value
   Hypo.assert(value >= -2 && value <= 2)
 end
@@ -15,7 +15,7 @@ check(Hypo.finish == 0, "passing exit")
 
 Hypo.configure([], executable: "hypo-test-runner", compiler_version: "test compiler")
 seen = []
-Hypo.property "failing", Hypo.integers(min: -2, max: 2), at: [__FILE__, __LINE__] do |value|
+Hypo.property "failing", Hypo.integers(min: -2, max: 2), at: ["runner_test.rb", 1] do |value|
   seen << value
   Hypo.assert(value < 0, "must be negative")
 end
@@ -23,7 +23,7 @@ check(seen == [-2, 2, 0, 0], "generation stops, then shrinking and confirmation 
 check(Hypo.finish == 1, "failing exit")
 
 Hypo.configure([], executable: "hypo-test-runner", compiler_version: "test compiler")
-Hypo.property "exception", Hypo.integers, at: [__FILE__, __LINE__] do |value|
+Hypo.property "exception", Hypo.integers, at: ["runner_test.rb", 1] do |value|
   raise ArgumentError, "target error"
 end
 check(Hypo.finish == 1, "exception exit")
@@ -31,7 +31,7 @@ check(Hypo.finish == 1, "exception exit")
 errors = 0
 Hypo.configure([], executable: "hypo-test-runner", compiler_version: "test compiler")
 begin
-  Hypo.property "two assertions", Hypo.integers, at: [__FILE__, __LINE__] do |value|
+  Hypo.property "two assertions", Hypo.integers, at: ["runner_test.rb", 1] do |value|
     Hypo.assert(true)
     Hypo.assert(true)
   end
@@ -40,7 +40,7 @@ rescue Hypo::Error
 end
 Hypo.configure([], executable: "hypo-test-runner", compiler_version: "test compiler")
 begin
-  Hypo.property "framework error", Hypo.integers, at: [__FILE__, __LINE__] do |value|
+  Hypo.property "framework error", Hypo.integers, at: ["runner_test.rb", 1] do |value|
     raise Hypo::Error, "must escape failure rescue"
   end
 rescue Hypo::Error
@@ -48,7 +48,7 @@ rescue Hypo::Error
 end
 Hypo.configure([], executable: "hypo-test-runner", compiler_version: "test compiler")
 begin
-  Hypo.property "nonboolean", Hypo.integers, at: [__FILE__, __LINE__] do |value|
+  Hypo.property "nonboolean", Hypo.integers, at: ["runner_test.rb", 1] do |value|
     Hypo.assert(1)
   end
 rescue Hypo::Error

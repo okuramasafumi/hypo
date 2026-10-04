@@ -63,11 +63,14 @@ FileUtils.mkdir_p(empty_path)
 out, err, status = run(portable, "--examples", "1", env: {"PATH" => empty_path})
 check(status == 0 && out.include?("(1 examples)"), "standalone runner")
 
-[["empty", "no properties executed"], ["invalid_domain", "integer bounds"], ["two_assertions", "only one assertion"], ["two_properties", "one property per executable"]].each do |name, message|
+[["empty", "no properties executed"], ["invalid_domain", "integer bounds"], ["two_assertions", "only one assertion"]].each do |name, message|
   executable = build(cli, name)
   out, err, status = run(executable)
   check(status == 2 && err.include?(message) && !out.include?("RESULT pass"), "configuration error #{name}: #{out} #{err}")
 end
+multiple = build(cli, "two_properties")
+out, err, status = run(multiple, "--examples", "3")
+check(status == 0 && out.include?("RESULT pass properties=2 examples=6"), "multiple properties: #{out} #{err}")
 executable = build(cli, "target_error")
 out, err, status = run(executable)
 check(status == 1 && out.include?("exception ArgumentError: target exploded"), "target exception: #{out} #{err}")

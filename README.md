@@ -2,7 +2,7 @@
 
 Hypo compiles readable Ruby properties into native test executables with [Spinel](https://github.com/matz/spinel).
 
-**M2 is implemented:** one integer property per executable, deterministic generation, bounded shrinking, failure confirmation, and replay commands. A reported input is a reduced counterexample, not a proven minimum. Boolean/array generators and multi-property suites are planned for M3.
+**M3 is implemented:** integer, Boolean, and integer-array properties; multiple spec files; exact property selection; deterministic generation; bounded shrinking; failure confirmation; and replay commands. A reported input is a reduced counterexample, not a proven minimum. Packaging and pinned CI remain for M4.
 
 ## Build and run
 
@@ -28,7 +28,7 @@ Hypo.property "absolute value is nonnegative",
 end
 ```
 
-`Hypo.property` takes a nonempty description, an integer generator, and `at: [file, line]` metadata. Use `at: [__FILE__, __LINE__]`: this Spinel release has no automatic caller locations. The reported location identifies the property metadata line, not the assertion or exception origin.
+`Hypo.property` takes a unique nonempty description, a supported generator, and `at: [file, line]` metadata. Use `at: [__FILE__, __LINE__]`: this Spinel release has no automatic caller locations. The reported location identifies the property metadata line, not the assertion or exception origin.
 
 `Hypo.assert` takes a Boolean condition and an optional String message. False raises a property failure; true passes. At most one assertion may execute per generated example; a second invocation is a configuration error. A property can also fail through an ordinary exception from the target. Specs are trusted code, and targets must terminate without exiting the process.
 
@@ -43,11 +43,25 @@ This finds `original_input=100` at `example=2`, reduces it to `reduced_input=10`
 
 | Exit | Meaning |
 | --- | --- |
-| 0 | Build succeeded, or the property passed its requested example count |
+| 0 | Build succeeded, or every selected property passed its requested example count |
 | 1 | An assertion/target exception failed, or final confirmation was unstable |
 | 2 | Usage, configuration, compiler, or framework error |
 
-An empty spec cannot pass. A second property is rejected for now. No property selector, filtering, timeout, or counterexample database is implemented yet.
+## Suites and property selection
+
+Pass explicit spec files in the desired execution order; the shell can expand globs. Declarations execute in file order, with a new PRNG initialized from the suite seed for each property. Adding, reordering, or filtering unrelated properties preserves a property's input sequence when the target has no shared state.
+
+```sh
+./build/bin/hypo build spec/boolean_spec.rb spec/array_absolute_value_spec.rb -o build/suite
+./build/suite --seed 42 --examples 100
+./build/suite --property "array absolute values are nonnegative" --seed 42 --examples 100
+```
+
+`--property` matches the complete, case-sensitive description. Every declaration is validated, including unselected properties; duplicate descriptions are errors. Filtering skips property blocks, but spec files are still loaded and their top-level Ruby executes. Repeated expanded spec paths are rejected at build time. Empty suites and unmatched selectors exit 2.
+
+Each selected property gets its own example and shrink budgets. After a failure, the suite continues with the next property. The final `RESULT` reports selected properties, total generation examples, passed/failed counts, unstable failures (a subset of failed), and declared properties including unselected ones. Any unstable failure makes the suite result `unstable`; otherwise any failure makes it `fail`. Both exit 1. Each replay command selects the reported property explicitly.
+
+Timeouts and a counterexample database remain outside the MVP.
 
 ## Integer generation contract
 
@@ -64,7 +78,28 @@ state starts at seed
 state = (1664525 * state + 1013904223) modulo 4294967296
 ```
 
-For width `max - min + 1`, let `limit = 4294967296 - (4294967296 modulo width)`. Discard draws at or above `limit`, then map the accepted draw to `min + (draw modulo width)`. This removes modulo bias; it does not make successive LCG outputs independent. All intermediate arithmetic fits a signed 64-bit integer. The PRNG state is private to the run and does not use `Kernel.rand`.
+For width `max - min + 1`, let `limit = 4294967296 - (4294967296 modulo width)`. Discard draws at or above `limit`, then map the accepted draw to `min + (draw modulo width)`. This removes modulo bias; it does not make successive LCG outputs independent. All intermediate arithmetic fits a signed 64-bit integer. The PRNG state is private to each property and does not use `Kernel.rand`.
+
+## Boolean and array generation
+
+`Hypo.booleans` starts with `false`, then `true`, without consuming random draws. Later values use `random.below(2) == 1`. A failing `true` tries `false`; `false` has no shrink candidates.
+
+`Hypo.arrays(of: Hypo.integers(...), min_size: 0, max_size: 20)` generates integer arrays only. Sizes must be ordered integers in `0..1000`; Boolean elements, nested arrays, and custom generators are unsupported.
+
+Boundary lengths are `min_size`, then 1 if allowed, then `max_size`, removing duplicates. The first boundary array and any singleton contain the minimum element; other boundary arrays contain the maximum element. These arrays consume no random draws. Subsequent arrays sample their length uniformly with the same rejection sampler, then draw each integer from its domain. Empty arrays and equal size/element bounds are valid. Boundary cases count toward the example budget.
+
+Array shrinking first removes chunks: start with `length - min_size`, try consecutive nonoverlapping chunks from left to right, halve the chunk length, and repeat down to one element. It then tries integer reductions at each index from left to right. Accepting a candidate restarts this search. Each candidate strictly reduces either length or, at the same length, the sum of element distances from the integer shrink target. Size and integer bounds are preserved.
+
+Every evaluation receives a fresh array copy, including shrink trials and confirmation. Mutating the argument cannot change the saved original, the reduced input, or future candidates. Shallow copies suffice because only integer elements are supported. Candidate lists retain at most the remaining shrink budget plus one, so large arrays do not materialize every possible element reduction at once.
+
+A mutation-using example with a deliberately buggy scalar target is included:
+
+```sh
+./build/bin/hypo build spec/buggy_array_absolute_value_spec.rb -o build/buggy_array
+./build/buggy_array --seed 42 --examples 100
+```
+
+It reduces an array of twenty `100` values to `[10]`, despite the property mutating its input with `map!`.
 
 ## Shrinking and confirmation
 
@@ -88,8 +123,9 @@ Generated references are relative to the entry point. Source paths containing sp
 spin test
 SPINEL=/path/to/spinel ruby test/integration/m1_test.rb
 SPINEL=/path/to/spinel ruby test/integration/m2_test.rb
+SPINEL=/path/to/spinel ruby test/integration/m3_test.rb
 ```
 
-`spin test` runs the generator and runner contract tests under Spinel and compares them with CRuby. The integration harnesses use CRuby to build/run native subprocesses and check their statuses, output, failure preservation, shrinking, confirmation, and exact shell-command replay. Temporary files and logs live under `.agents.local/m1/` and `.agents.local/m2/`.
+`spin test` runs the generator and runner contract tests under Spinel and compares them with CRuby. The integration harnesses use CRuby to build/run native subprocesses and check their statuses, output, failure preservation, shrinking, confirmation, and exact shell-command replay. M3 additionally checks mixed suites, mutation-safe array reduction, selected replay, declaration errors, and seed isolation across file order and filtering. Temporary files and logs live under `.agents.local/m1/`, `.agents.local/m2/`, and `.agents.local/m3/`.
 
-See [the MVP plan](MVP_PLAN.md) for the remaining milestones. Implementation patches and validation records are under `.agents.local/reviews/m1/` and `.agents.local/reviews/m2/`.
+See [the MVP plan](MVP_PLAN.md) for the remaining milestones. Implementation patches and validation records are under `.agents.local/reviews/m1/`, `.agents.local/reviews/m2/`, and `.agents.local/reviews/m3/`.

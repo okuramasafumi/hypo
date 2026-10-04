@@ -40,7 +40,7 @@ check(out.include?("hypo_version="), "Hypo version reported")
 replay_line = out.lines.find { |line| line.start_with?("  replay: ") }
 check(!replay_line.nil?, "replay command printed")
 replay = replay_line.delete_prefix("  replay: ").strip
-check(Shellwords.split(replay) == [runner, "--seed", "42", "--examples", "100", "--shrink-limit", "1000"], "complete replay arguments")
+check(Shellwords.split(replay) == [runner, "--seed", "42", "--examples", "100", "--shrink-limit", "1000", "--property", "threshold"], "complete replay arguments")
 check(run("/bin/sh", "-c", replay) == first, "printed shell command exactly reproduces failure")
 check(!File.exist?(File.join(WORK, "INJECTED")), "executable path is shell quoted")
 
