@@ -32,7 +32,7 @@ raise "release checks require Spinel #{Hypo::SPINEL_REVISION}; got #{version}" u
 raise "no unit programs found" if Dir.glob(File.join(ROOT, "test/*_test.rb")).empty?
 run(spin, "test")
 run(spin, "build")
-%w[m1 m2 m3 m4].each { |milestone| run(RbConfig.ruby, "test/integration/#{milestone}_test.rb") }
+%w[m1 m2 m3 m4 m5].each { |milestone| run(RbConfig.ruby, "test/integration/#{milestone}_test.rb") }
 
 cli = File.join(ROOT, "build/bin/hypo")
 passing = File.join(ROOT, "build/absolute_value_spec")

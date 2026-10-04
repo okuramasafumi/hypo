@@ -118,4 +118,8 @@ The source-map discrepancy noted in M2 also appeared in `runner_test.rb` after a
 
 The full release gate now passes with the pinned compiler on macOS arm64 and Debian Bookworm arm64 in Docker. Native package relocation uses `File.realpath` and PATH lookup to locate the bundled runtime source; a package compiled from a clean source copy builds a runner after that source copy is hidden. Help/version handling occurs before spec loading. Both platforms pass seven CRuby/native unit programs and 137 native integration checks, including standalone replay without package/spec sources or development tools.
 
-The existing compiler limitations remain. The configured hosted macOS/Ubuntu workflow has not run, and x86/Windows are unverified. See [release validation and exact boundaries](release-validation.md); records are under `.agents.local/m4/` and `.agents.local/reviews/m4/`.
+The existing compiler limitations remain. The [hosted macOS/Ubuntu M4 workflow passed](https://github.com/okuramasafumi/hypo/actions/runs/37194069849) for commit `958270e`; x86/Windows are unverified. See [release validation and exact boundaries](release-validation.md); records are under `.agents.local/m4/` and `.agents.local/reviews/m4/`.
+
+## M5 consumer trial
+
+The packaged framework also compiles and executes a separate sorted-integer consumer project using array sorting/counting, binary search, and nonmutating insertion. The planted upper-bound bug shrinks to `[-1]` and replays exactly; repairing the target source and rebuilding restores passing behavior. The authored example and 19-check trial are in `examples/sorted_ints/` and `test/integration/m5_test.rb`. Local macOS/Linux validation does not imply that the earlier hosted M4 run covered these later additions.

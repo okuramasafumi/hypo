@@ -53,4 +53,5 @@ jobs:
             .agents.local/m2/
             .agents.local/m3/
             .agents.local/m4/
+            .agents.local/m5/
             build/hypo/

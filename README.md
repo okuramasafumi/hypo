@@ -6,7 +6,7 @@ Hypo compiles readable Ruby properties into native test executables with [Spinel
 
 ## Build and run
 
-Use Spinel revision `6c97683140c624520836c8f807ba598f0f47a57e` and its C toolchain. The full release command passes on macOS arm64 and Linux arm64 (Debian Bookworm in Docker). Other architectures, operating systems, and compiler revisions are outside the initial supported scope. The hosted macOS/Ubuntu CI workflow is configured but has not yet run; see [validation evidence and limits](docs/release-validation.md). Put its `bin/` directory on PATH, then run from this checkout:
+Use Spinel revision `6c97683140c624520836c8f807ba598f0f47a57e` and its C toolchain. The full release command passes on macOS arm64 and Linux arm64 (Debian Bookworm in Docker). Other architectures, operating systems, and compiler revisions are outside the initial supported scope. The M4 hosted macOS/Ubuntu workflow [passed for commit `958270e`](https://github.com/okuramasafumi/hypo/actions/runs/37194069849); see [validation evidence and limits](docs/release-validation.md). Put its `bin/` directory on PATH, then run from this checkout:
 
 ```sh
 spin build
@@ -142,6 +142,12 @@ The destination must be new. The package contains `bin/hypo`, its required `lib/
 
 Package staging artifacts are retained under `.agents.local/package/`. An existing destination is never overwritten. The generated property executable is independent of the package and source tree once compilation finishes.
 
+## Try Hypo in a separate project
+
+The package includes a [standalone sorted-integer library](examples/sorted_ints/README.md) and three properties. Copy that example to its own directory and follow its guide to plant an exclusive-bound error, reduce the failure to `[-1]`, replay it, and repair/rebuild the target. The library imports no Hypo source; the packaged CLI supplies the framework when compiling its specs.
+
+The automated version is `ruby test/integration/m5_test.rb`. It runs as part of the release checks below and modifies only a disposable project copy.
+
 ## Test and release checks
 
 With the pinned `spin` and `spinel` on PATH:
@@ -156,7 +162,7 @@ For explicit local paths:
 SPINEL=/path/to/spinel SPIN=/path/to/spin ruby script/ci.rb
 ```
 
-This command checks the compiler revision, runs `spin test` and `spin build`, runs all four native integration harnesses, then builds/runs the documented passing, failing, and selected examples. It checks expected exit codes rather than treating planted failures as harness failures. CRuby is the unit-test reference and subprocess driver. Ruby 3.4.2 is pinned in CI; the local macOS validation also passed with Ruby 4.1.0dev.
+This command checks the compiler revision, runs `spin test` and `spin build`, runs all five native integration harnesses, then builds/runs the documented passing, failing, and selected examples. It checks expected exit codes rather than treating planted failures as harness failures. CRuby is the unit-test reference and subprocess driver. Ruby 3.4.2 is pinned in CI; the local macOS validation also passed with Ruby 4.1.0dev.
 
 For a focused check:
 
@@ -165,10 +171,10 @@ spin test
 SPINEL=/path/to/spinel ruby test/integration/m4_test.rb
 ```
 
-M1–M3 integration harnesses remain under `test/integration/`. M4 covers help/version before spec loading, compiler overrides and diagnostics, provenance, packaging from a clean source copy, relocation through PATH/symlinks, and standalone replay after hiding package/spec sources and removing tools from PATH.
+M1–M3 integration harnesses remain under `test/integration/`. M4 covers help/version before spec loading, compiler overrides and diagnostics, provenance, packaging from a clean source copy, relocation through PATH/symlinks, and standalone replay after hiding package/spec sources and removing tools from PATH. M5 adds a separate consumer project with a binary-search bug, reduced regression, exact replay, source repair, and rebuild.
 
-Logs and a fixed-workload measurement are saved under `.agents.local/ci/<id>/`; integration artifacts live under `.agents.local/m1/` through `.agents.local/m4/`. The measurement records compiler version, host, seed, example count, build time, executable bytes, and execution wall time. It is one descriptive sample with startup overhead, not a performance claim or release threshold.
+Logs and a fixed-workload measurement are saved under `.agents.local/ci/<id>/`; integration artifacts live under `.agents.local/m1/` through `.agents.local/m5/`. The measurement records compiler version, host, seed, example count, build time, executable bytes, and execution wall time. It is one descriptive sample with startup overhead, not a performance claim or release threshold.
 
 The [CI workflow](.github/workflows/ci.yml) uses immutable action references and Spinel revision `6c97683140c624520836c8f807ba598f0f47a57e`, builds Spinel with its pinned parser dependencies, and runs the same command on `macos-14` and `ubuntu-24.04-arm`. It retains diagnostics even after a failed check. The hosted runner images themselves receive updates; this is a compiler/source pin, not a bit-for-bit reproducible environment.
 
-See [release validation](docs/release-validation.md) for executed checks and the pending hosted-CI run, and [the MVP plan](MVP_PLAN.md) for the completed scope and deferred features. Implementation patches and validation records are under `.agents.local/reviews/m1/` through `.agents.local/reviews/m4/`.
+See [release validation](docs/release-validation.md) for the successful hosted M4 checks and locally verified M5 additions, and [the MVP plan](MVP_PLAN.md) for the completed scope and deferred features. Implementation patches and validation records are under `.agents.local/reviews/m1/` through `.agents.local/reviews/m5/`.
