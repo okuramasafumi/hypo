@@ -1,8 +1,13 @@
 require_relative "../lib/hypo/build"
+require_relative "../lib/hypo/help"
 
 usage = "usage: hypo build SPEC.rb [SPEC.rb ...] -o EXECUTABLE"
-if ARGV == ["--help"]
-  puts usage
+if ARGV == ["--help"] || ARGV == ["build", "--help"]
+  puts Hypo::Help.builder
+  exit 0
+end
+if ARGV == ["--version"]
+  puts "Hypo #{Hypo::VERSION}"
   exit 0
 end
 unless ARGV.length >= 4 && ARGV[0] == "build" && ARGV[-2] == "-o"

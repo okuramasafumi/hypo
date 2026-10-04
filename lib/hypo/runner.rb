@@ -1,9 +1,8 @@
 require_relative "generators"
 require_relative "options"
+require_relative "version"
 
 module Hypo
-  VERSION = "0.3.0.dev"
-
   # Identity is local to a property: assertion, exception class, or passing.
   # Messages are observations, not identities; they may include the input.
   class Evaluation

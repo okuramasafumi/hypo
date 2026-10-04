@@ -1,4 +1,5 @@
 require_relative "hypo/runner"
+require_relative "hypo/help"
 
 module Hypo
   @runner = Runner.new([])

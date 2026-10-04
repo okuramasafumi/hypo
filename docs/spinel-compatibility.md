@@ -113,3 +113,9 @@ The pinned compiler now passes mixed suites of integer, Boolean, and integer-arr
 The array acceptance target clears its argument on every evaluation. The report still preserves `[10, 10, 10, 10]`, reduces it to `[3]`, and confirms the failure with a fresh array. Boundary arrays do not advance the PRNG, including when the element domain contains only one integer. These are implemented runtime checks, extending M0's earlier copy/type probes.
 
 The source-map discrepancy noted in M2 also appeared in `runner_test.rb` after adding array support; that algorithm test now uses fixed locations. Native M3 public-API fixtures separately verify their actual integer/Boolean/array declaration lines. Existing compiler limitations and the unverified Linux/packaging scope remain. M3 logs and exact implementation records live under `.agents.local/m3/` and `.agents.local/reviews/m3/`.
+
+## M4 follow-up (2026-10-04)
+
+The full release gate now passes with the pinned compiler on macOS arm64 and Debian Bookworm arm64 in Docker. Native package relocation uses `File.realpath` and PATH lookup to locate the bundled runtime source; a package compiled from a clean source copy builds a runner after that source copy is hidden. Help/version handling occurs before spec loading. Both platforms pass seven CRuby/native unit programs and 137 native integration checks, including standalone replay without package/spec sources or development tools.
+
+The existing compiler limitations remain. The configured hosted macOS/Ubuntu workflow has not run, and x86/Windows are unverified. See [release validation and exact boundaries](release-validation.md); records are under `.agents.local/m4/` and `.agents.local/reviews/m4/`.

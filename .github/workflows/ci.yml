@@ -1,0 +1,56 @@
+name: Native MVP
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # verified v1 snapshot
+        with:
+          ruby-version: '3.4.2'
+      - name: Fetch pinned Spinel
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: matz/spinel
+          ref: 6c97683140c624520836c8f807ba598f0f47a57e
+          path: .agents.local/toolchain/spinel
+          persist-credentials: false
+      - name: Build Spinel
+        working-directory: .agents.local/toolchain/spinel
+        run: |
+          test "$(git rev-parse HEAD)" = 6c97683140c624520836c8f807ba598f0f47a57e
+          make deps
+          make -j4 all
+          echo "$PWD/bin" >> "$GITHUB_PATH"
+          echo "SPINEL=$PWD/bin/spinel" >> "$GITHUB_ENV"
+      - name: Run release checks
+        run: ruby script/ci.rb
+      - name: Retain diagnostics and measurements
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-${{ matrix.os }}
+          include-hidden-files: true
+          retention-days: 7
+          path: |
+            .agents.local/ci/
+            .agents.local/m1/
+            .agents.local/m2/
+            .agents.local/m3/
+            .agents.local/m4/
+            build/hypo/

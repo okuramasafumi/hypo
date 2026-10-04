@@ -1,0 +1,4 @@
+module Hypo
+  VERSION = "0.4.0"
+  SPINEL_REVISION = "6c97683140c624520836c8f807ba598f0f47a57e"
+end
